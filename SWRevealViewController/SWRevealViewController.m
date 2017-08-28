@@ -89,7 +89,10 @@ static CGFloat scaledValue( CGFloat v1, CGFloat min2, CGFloat max2, CGFloat min1
     {
         _c = controller;
         CGRect bounds = self.bounds;
-    
+
+        //iPadOpenedMenu
+        _c.isIPadLandscapeMode = bounds.size.width > bounds.size.height;
+
         _frontView = [[UIView alloc] initWithFrame:bounds];
         _frontView.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
         [self reloadShadow];
@@ -215,8 +218,8 @@ static CGFloat scaledValue( CGFloat v1, CGFloat min2, CGFloat max2, CGFloat min1
     // set rear view frames
     [self _layoutRearViewsForLocation:xLocation];
     
-    // set front view frame
-    CGRect frame = CGRectMake(xLocation, 0.0f, bounds.size.width, bounds.size.height);
+    // set front view frame -> iPadOpenedMenu
+    CGRect frame =  CGRectMake(xLocation, 0.0f, bounds.size.width - (_c.isIPadLandscapeMode ? _c.rightViewRevealWidth : 0), bounds.size.height);
     _frontView.frame = [self hierarchycalFrameAdjustment:frame];
     
     // setup front view shadow path if needed (front view loaded and not removed)
@@ -736,6 +739,12 @@ const int FrontViewPositionNone = 0xff;
     [self _setFrontViewPosition:initialPosition withDuration:0.0];
 }
 
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+
+    //iPadOpenedMenu
+    [self setupRightMenu];
+}
 
 - (void)viewDidAppear:(BOOL)animated
 {
@@ -769,6 +778,29 @@ const int FrontViewPositionNone = 0xff;
     return [super supportedInterfaceOrientations];
 }
 
+#pragma mark - search code for iPadOpenedMenu
+- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id)coordinator {
+    self.isIPadLandscapeMode = (size.width > size.height && [UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad);
+    [self setupRightMenu];
+}
+
+- (void) setupRightMenu {
+
+    if (_frontViewPosition == FrontViewPositionLeftSide) {
+        [self rightRevealToggleAnimated:NO];
+    }
+
+    if (self.isIPadLandscapeMode) {
+        self.rightViewRevealOverdraw = 0;
+        self.rightViewRevealDisplacement = 0;
+
+        [self rightRevealToggleAnimated:NO];
+
+    } else {
+        self.rightViewRevealOverdraw = 60.0f;
+        self.rightViewRevealDisplacement = 40.0f;
+    }
+}
 
 #pragma mark - Public methods and property accessors
 
@@ -1400,7 +1432,7 @@ const int FrontViewPositionNone = 0xff;
 {
     void (^rearDeploymentCompletion)() = [self _rearViewDeploymentForNewFrontViewPosition:newPosition];
     void (^rightDeploymentCompletion)() = [self _rightViewDeploymentForNewFrontViewPosition:newPosition];
-    void (^frontDeploymentCompletion)() = [self _frontViewDeploymentForNewFrontViewPosition:newPosition];
+    void (^frontDeploymentCompletion)() = self.isIPadLandscapeMode ? [self _frontViewDeploymentForNewFrontViewPosition: FrontViewPositionLeft] :[self _frontViewDeploymentForNewFrontViewPosition:newPosition]; //iPadOpenedMenu
     
     void (^animations)() = ^()
     {
